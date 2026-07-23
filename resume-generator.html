@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Builder</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --paper:#ffffff;
+    --line:#d8d5cd;
+    --panel:#f6f5f1;
+    --accent:#7a1f1f;
+    --muted:#8a8578;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Georgia',serif;
+    background:var(--panel);
+    color:var(--ink);
+  }
+  .app{
+    display:flex;
+    min-height:100vh;
+  }
+  .editor{
+    width:42%;
+    min-width:340px;
+    max-width:560px;
+    background:#fff;
+    border-right:1px solid var(--line);
+    padding:24px 24px 80px;
+    overflow-y:auto;
+    height:100vh;
+    position:sticky;
+    top:0;
+  }
+  .preview-pane{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:32px 24px 80px;
+    overflow-y:auto;
+    height:100vh;
+  }
+  .editor h1{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:15px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 4px;
+  }
+  .editor .sub{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:12px;
+    color:var(--muted);
+    margin:0 0 24px;
+  }
+  .block{
+    border-top:1px solid var(--line);
+    padding:18px 0;
+  }
+  .block:first-of-type{border-top:none;}
+  .block-title{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    font-weight:700;
+    color:#333;
+    margin-bottom:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  label{
+    display:block;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:10.5px;
+    color:var(--muted);
+    margin:8px 0 3px;
+  }
+  input[type=text], textarea{
+    width:100%;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:13px;
+    padding:7px 8px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:#fcfcfa;
+    color:var(--ink);
+  }
+  textarea{resize:vertical; min-height:56px; line-height:1.4;}
+  .row2{display:flex; gap:8px;}
+  .row2 > div{flex:1;}
+  .entry{
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:10px 10px 4px;
+    margin-bottom:10px;
+    background:#fafaf8;
+  }
+  .entry-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:2px;
+  }
+  .entry-head span{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:10px;
+    color:var(--muted);
+  }
+  button{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    cursor:pointer;
+    border:none;
+  }
+  .btn-add{
+    background:none;
+    color:var(--accent);
+    font-size:11.5px;
+    font-weight:600;
+    padding:4px 0;
+  }
+  .btn-remove{
+    background:none;
+    color:#b34747;
+    font-size:16px;
+    line-height:1;
+    padding:2px 6px;
+  }
+  .btn-remove:hover{color:#7a1f1f;}
+  .actions{
+    position:sticky;
+    bottom:0;
+    background:#fff;
+    padding-top:14px;
+    margin-top:10px;
+    display:flex;
+    gap:8px;
+  }
+  .actions button{
+    flex:1;
+    padding:11px 8px;
+    border-radius:4px;
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:.03em;
+  }
+  #btnPdf{background:var(--accent); color:#fff;}
+  #btnPdf:hover{background:#5e1717;}
+  #btnImg{background:#1a1a1a; color:#fff;}
+  #btnImg:hover{background:#000;}
+  #status{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:11px;
+    color:var(--muted);
+    text-align:center;
+    margin-top:8px;
+    min-height:14px;
+  }
+
+  /* ---- Resume preview, styled after uploaded template ---- */
+  #resumePreview{
+    width:816px;
+    min-height:1056px;
+    background:var(--paper);
+    padding:52px 58px 60px;
+    font-family:'Times New Roman', Times, 'Latin Modern Roman', serif;
+    color:#111;
+    box-shadow:0 4px 24px rgba(0,0,0,.15);
+  }
+  .r-name{
+    text-align:center;
+    font-size:29px;
+    font-weight:700;
+    letter-spacing:.5px;
+    margin-bottom:6px;
+  }
+  .r-contact{
+    text-align:center;
+    font-size:12.5px;
+    margin-bottom:18px;
+  }
+  .r-contact a{color:#111; text-decoration:none;}
+  .r-contact a:hover{text-decoration:underline;}
+  .r-contact .sep{color:#999; margin:0 6px;}
+  .r-section-title{
+    font-variant:small-caps;
+    font-size:15.5px;
+    font-weight:700;
+    letter-spacing:.4px;
+    border-bottom:1.1px solid #111;
+    padding-bottom:2px;
+    margin:16px 0 8px;
+  }
+  .r-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+  }
+  .r-row .l{font-weight:700;}
+  .r-row .r{font-style:italic;}
+  .r-subrow{
+    display:flex;
+    justify-content:space-between;
+    font-size:12.5px;
+    font-style:italic;
+    margin-bottom:3px;
+  }
+  .r-bullets{
+    margin:2px 0 10px 0;
+    padding-left:18px;
+    font-size:12.5px;
+    line-height:1.42;
+  }
+  .r-bullets li{margin-bottom:2px;}
+  .r-achv{
+    margin:0 0 4px 18px;
+    padding:0;
+    font-size:12.5px;
+    line-height:1.5;
+  }
+  .r-skills div{
+    font-size:12.5px;
+    line-height:1.6;
+  }
+  .r-skills b{font-weight:700;}
+  .r-empty-hint{
+    text-align:center;
+    color:#b7b3a8;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:11px;
+    padding:6px 0 14px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ EDITOR ============ -->
+  <div class="editor">
+    <h1>Resume Builder</h1>
+    <p class="sub">Fill in your details. The preview on the right updates live and matches the template exactly.</p>
+
+    <div class="block">
+      <div class="block-title">Header</div>
+      <label>Full name</label>
+      <input type="text" id="f_name" value="Kriti Jaiswal">
+      <div class="row2">
+        <div><label>Phone</label><input type="text" id="f_phone" value="+91 9876543210"></div>
+        <div><label>Email</label><input type="text" id="f_email" value="kriti.jaiswal2001@yahoo.com"></div>
+      </div>
+      <div class="row2">
+        <div><label>LinkedIn URL</label><input type="text" id="f_linkedin" value="https://linkedin.com/in/kriti-jaiswal1"></div>
+        <div><label>GitHub URL</label><input type="text" id="f_github" value="https://github.com/KritiJaiswal2001"></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title">Education <button class="btn-add" onclick="addEducation()">+ Add</button></div>
+      <div id="eduList"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-title">Experience <button class="btn-add" onclick="addExperience()">+ Add</button></div>
+      <div id="expList"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-title">Projects <button class="btn-add" onclick="addProject()">+ Add</button></div>
+      <div id="projList"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-title">Certificates / Achievements <button class="btn-add" onclick="addAchv()">+ Add</button></div>
+      <div id="achvList"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-title">Technical Skills <button class="btn-add" onclick="addSkill()">+ Add</button></div>
+      <div id="skillList"></div>
+    </div>
+
+    <div class="actions">
+      <button id="btnPdf" onclick="downloadPdf()">Download PDF</button>
+      <button id="btnImg" onclick="downloadImage()">Download Image</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <!-- ============ PREVIEW ============ -->
+  <div class="preview-pane">
+    <div id="resumePreview"></div>
+  </div>
+
+</div>
+
+<script>
+/* ---------------------------------------------------------
+   STATE
+--------------------------------------------------------- */
+let state = {
+  education: [
+    {school:"Lovely Professional University", location:"Punjab, India",
+     degree:"Bachelor of Technology - Computer Science and Engineering; CGPA: 8.60",
+     dates:"Aug. 2020 - June 2024"}
+  ],
+  experience: [
+    {title:"Software Development Engineer Intern", dates:"Jan 2024 - July 2024",
+     company:"GE Digital", location:"Hyderabad, IN",
+     bullets:[
+      "Developed and deployed RESTful APIs using Java (Spring Boot) and ORM tools (Hibernate/JPA) to enable efficient data access and robust CRUD operations across relational databases.",
+      "Enhanced search and data retrieval performance by optimizing queries and integrating custom filtering mechanisms within a high-traffic operational insights platform.",
+      "Maintained high code quality through peer code reviews, adherence to clean code principles, and implementation of comprehensive unit and integration tests using JUnit and Mockito."
+     ]},
+    {title:"Amazon ML Summer School", dates:"July 2022 - August 2022",
+     company:"Amazon", location:"Virtual",
+     bullets:[
+      "Implemented supervised, unsupervised, and complex machine learning algorithms using a suite of Python libraries such as scikit-learn, NumPy, and pandas.",
+      "Developed machine learning models for diverse projects using advanced algorithms and tools, achieving accuracy rates exceeding 95%."
+     ]}
+  ],
+  projects: [
+    {name:"Women Security App", tech:"Java, XML, Firebase, Android Studio", dates:"July 2022 - Dec 2022",
+     bullets:[
+      "Developed an Android mobile application enabling real-time location tracking among users in private groups via unique join codes.",
+      "Integrated emergency features such as one-click SOS alerts, calls, and messaging to pre-defined contacts.",
+      "Utilized Firebase for real-time database, authentication, and secure data synchronization."
+     ]},
+    {name:"CGPA Booster", tech:"HTML, CSS, JavaScript", dates:"Jan 2022 - June 2022",
+     bullets:[
+      "Engineered an innovative Ed-Tech platform that empowers students to learn, teach, and collaborate seamlessly.",
+      "Developed CGPA Booster as a transformative solution designed to bridge the gap between students and vital study resources.",
+      "Built the platform from the ground up using core web technologies, ensuring a user-friendly, scalable interface."
+     ]}
+  ],
+  achievements: [
+    "CGPA Booster: Attracted 10,000+ monthly visitors, Google AdSense approved.",
+    "Hacktoberfest 2021/2022 Contribution: Contributed to open source by submitting 8+ pull requests accepted on GitHub.",
+    "Top 50 in Codeathon: Ranked among the top 50 students in GE Digital's global competition.",
+    "1,000+ DSA Questions Solved: Completed challenges on platforms like LeetCode, CodeChef and GFG."
+  ],
+  skills: [
+    {category:"Programming Languages", values:"C++, C, Java, JavaScript, Python"},
+    {category:"Databases", values:"MySQL, PostgreSQL"},
+    {category:"Frameworks", values:"Spring Boot, MVC, Bootstrap"},
+    {category:"Tools/Technologies", values:"AWS, Git, JUnit, Jenkins, RESTful Web Services"},
+    {category:"Core Concepts", values:"Data Structures and Algorithms, OOP, Microservices, Operating System, Computer Networks"}
+  ]
+};
+
+/* ---------------------------------------------------------
+   HELPERS
+--------------------------------------------------------- */
+function esc(s){
+  return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function bulletsToText(arr){ return (arr||[]).join("\n"); }
+function textToBullets(txt){
+  return txt.split("\n").map(l=>l.trim()).filter(l=>l.length>0);
+}
+
+/* ---------------------------------------------------------
+   RENDER: FORM
+--------------------------------------------------------- */
+function renderForm(){
+  // Education
+  const eduList = document.getElementById('eduList');
+  eduList.innerHTML = state.education.map((e,i)=>`
+    <div class="entry">
+      <div class="entry-head"><span>Education ${i+1}</span>
+        <button class="btn-remove" onclick="removeItem('education',${i})">&times;</button></div>
+      <label>School</label><input type="text" value="${esc(e.school)}" onchange="updateField('education',${i},'school',this.value)">
+      <div class="row2">
+        <div><label>Location</label><input type="text" value="${esc(e.location)}" onchange="updateField('education',${i},'location',this.value)"></div>
+        <div><label>Dates</label><input type="text" value="${esc(e.dates)}" onchange="updateField('education',${i},'dates',this.value)"></div>
+      </div>
+      <label>Degree / detail line</label><input type="text" value="${esc(e.degree)}" onchange="updateField('education',${i},'degree',this.value)">
+    </div>`).join('') || `<div class="r-empty-hint">No education added</div>`;
+
+  // Experience
+  const expList = document.getElementById('expList');
+  expList.innerHTML = state.experience.map((e,i)=>`
+    <div class="entry">
+      <div class="entry-head"><span>Experience ${i+1}</span>
+        <button class="btn-remove" onclick="removeItem('experience',${i})">&times;</button></div>
+      <div class="row2">
+        <div><label>Title</label><input type="text" value="${esc(e.title)}" onchange="updateField('experience',${i},'title',this.value)"></div>
+        <div><label>Dates</label><input type="text" value="${esc(e.dates)}" onchange="updateField('experience',${i},'dates',this.value)"></div>
+      </div>
+      <div class="row2">
+        <div><label>Company</label><input type="text" value="${esc(e.company)}" onchange="updateField('experience',${i},'company',this.value)"></div>
+        <div><label>Location</label><input type="text" value="${esc(e.location)}" onchange="updateField('experience',${i},'location',this.value)"></div>
+      </div>
+      <label>Bullet points (one per line)</label>
+      <textarea onchange="updateField('experience',${i},'bullets',textToBullets(this.value))">${esc(bulletsToText(e.bullets))}</textarea>
+    </div>`).join('') || `<div class="r-empty-hint">No experience added</div>`;
+
+  // Projects
+  const projList = document.getElementById('projList');
+  projList.innerHTML = state.projects.map((e,i)=>`
+    <div class="entry">
+      <div class="entry-head"><span>Project ${i+1}</span>
+        <button class="btn-remove" onclick="removeItem('projects',${i})">&times;</button></div>
+      <div class="row2">
+        <div><label>Name</label><input type="text" value="${esc(e.name)}" onchange="updateField('projects',${i},'name',this.value)"></div>
+        <div><label>Dates</label><input type="text" value="${esc(e.dates)}" onchange="updateField('projects',${i},'dates',this.value)"></div>
+      </div>
+      <label>Tech stack</label><input type="text" value="${esc(e.tech)}" onchange="updateField('projects',${i},'tech',this.value)">
+      <label>Bullet points (one per line)</label>
+      <textarea onchange="updateField('projects',${i},'bullets',textToBullets(this.value))">${esc(bulletsToText(e.bullets))}</textarea>
+    </div>`).join('') || `<div class="r-empty-hint">No projects added</div>`;
+
+  // Achievements
+  const achvList = document.getElementById('achvList');
+  achvList.innerHTML = `
+    <div class="entry">
+      <label>One achievement per line</label>
+      <textarea style="min-height:110px" onchange="state.achievements = textToBullets(this.value); renderPreview();">${esc(bulletsToText(state.achievements))}</textarea>
+    </div>`;
+
+  // Skills
+  const skillList = document.getElementById('skillList');
+  skillList.innerHTML = state.skills.map((e,i)=>`
+    <div class="entry">
+      <div class="entry-head"><span>Skill row ${i+1}</span>
+        <button class="btn-remove" onclick="removeItem('skills',${i})">&times;</button></div>
+      <label>Category</label><input type="text" value="${esc(e.category)}" onchange="updateField('skills',${i},'category',this.value)">
+      <label>Values (comma separated)</label><input type="text" value="${esc(e.values)}" onchange="updateField('skills',${i},'values',this.value)">
+    </div>`).join('') || `<div class="r-empty-hint">No skills added</div>`;
+}
+
+function updateField(section, idx, field, value){
+  state[section][idx][field] = value;
+  renderPreview();
+}
+function removeItem(section, idx){
+  state[section].splice(idx,1);
+  renderForm();
+  renderPreview();
+}
+function addEducation(){ state.education.push({school:"University Name", location:"City, Country", degree:"Degree - Major; CGPA: 0.00", dates:"Month Year - Month Year"}); renderForm(); renderPreview(); }
+function addExperience(){ state.experience.push({title:"Job Title", dates:"Month Year - Month Year", company:"Company Name", location:"City, Country", bullets:["Describe an accomplishment with impact."]}); renderForm(); renderPreview(); }
+function addProject(){ state.projects.push({name:"Project Name", tech:"Tech, Stack", dates:"Month Year - Month Year", bullets:["Describe what you built and its impact."]}); renderForm(); renderPreview(); }
+function addAchv(){ state.achievements.push("New achievement"); renderForm(); renderPreview(); }
+function addSkill(){ state.skills.push({category:"Category", values:"value one, value two"}); renderForm(); renderPreview(); }
+
+/* Header fields update preview directly */
+['f_name','f_phone','f_email','f_linkedin','f_github'].forEach(id=>{
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.getElementById(id).addEventListener('input', renderPreview);
+  });
+});
+
+/* ---------------------------------------------------------
+   RENDER: PREVIEW (HTML, mirrors the uploaded template)
+--------------------------------------------------------- */
+function displayUrl(u){
+  return (u||"").replace(/^https?:\/\//,'').replace(/\/$/,'');
+}
+function renderPreview(){
+  const name = document.getElementById('f_name').value;
+  const phone = document.getElementById('f_phone').value;
+  const email = document.getElementById('f_email').value;
+  const linkedin = document.getElementById('f_linkedin').value;
+  const github = document.getElementById('f_github').value;
+
+  let html = `<div class="r-name">${esc(name)}</div>`;
+  html += `<div class="r-contact">`;
+  const parts = [];
+  if(phone) parts.push(esc(phone));
+  if(email) parts.push(`<a href="mailto:${esc(email)}">${esc(email)}</a>`);
+  if(linkedin) parts.push(`<a href="${esc(linkedin)}" target="_blank">${esc(displayUrl(linkedin))}</a>`);
+  if(github) parts.push(`<a href="${esc(github)}" target="_blank">${esc(displayUrl(github))}</a>`);
+  html += parts.join(`<span class="sep">|</span>`);
+  html += `</div>`;
+
+  // Education
+  if(state.education.length){
+    html += `<div class="r-section-title">Education</div>`;
+    state.education.forEach(e=>{
+      html += `<div class="r-row"><span class="l">${esc(e.school)}</span><span class="r">${esc(e.location)}</span></div>`;
+      html += `<div class="r-subrow"><span>${esc(e.degree)}</span><span>${esc(e.dates)}</span></div>`;
+    });
+  }
+
+  // Experience
+  if(state.experience.length){
+    html += `<div class="r-section-title">Experience</div>`;
+    state.experience.forEach(e=>{
+      html += `<div class="r-row"><span class="l">${esc(e.title)}</span><span class="r">${esc(e.dates)}</span></div>`;
+      html += `<div class="r-subrow"><span>${esc(e.company)}</span><span>${esc(e.location)}</span></div>`;
+      if(e.bullets && e.bullets.length){
+        html += `<ul class="r-bullets">` + e.bullets.map(b=>`<li>${esc(b)}</li>`).join('') + `</ul>`;
+      }
+    });
+  }
+
+  // Projects
+  if(state.projects.length){
+    html += `<div class="r-section-title">Projects</div>`;
+    state.projects.forEach(e=>{
+      html += `<div class="r-row"><span class="l">${esc(e.name)}${e.tech?` <span style="font-style:italic;font-weight:400;">| ${esc(e.tech)}</span>`:''}</span><span class="r">${esc(e.dates)}</span></div>`;
+      if(e.bullets && e.bullets.length){
+        html += `<ul class="r-bullets">` + e.bullets.map(b=>`<li>${esc(b)}</li>`).join('') + `</ul>`;
+      }
+    });
+  }
+
+  // Achievements
+  if(state.achievements.length){
+    html += `<div class="r-section-title">Certificates / Achievements</div>`;
+    html += `<ul class="r-achv">` + state.achievements.map(a=>`<li>${esc(a)}</li>`).join('') + `</ul>`;
+  }
+
+  // Skills
+  if(state.skills.length){
+    html += `<div class="r-section-title">Technical Skills</div><div class="r-skills">`;
+    state.skills.forEach(s=>{
+      html += `<div><b>${esc(s.category)}:</b> ${esc(s.values)}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  document.getElementById('resumePreview').innerHTML = html;
+}
+
+/* ---------------------------------------------------------
+   PDF EXPORT (vector text + real clickable hyperlinks)
+--------------------------------------------------------- */
+function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+function downloadPdf(){
+  try{
+    setStatus('Generating PDF...');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'pt', format:'letter'});
+    const pageW = 612, pageH = 792, margin = 48;
+    const contentW = pageW - margin*2;
+    let y = margin + 6;
+
+    const name = document.getElementById('f_name').value;
+    const phone = document.getElementById('f_phone').value;
+    const email = document.getElementById('f_email').value;
+    const linkedin = document.getElementById('f_linkedin').value;
+    const github = document.getElementById('f_github').value;
+
+    function ensureSpace(h){
+      if(y + h > pageH - margin){ doc.addPage(); y = margin + 6; }
+    }
+    function lineGap(n){ y += n; }
+
+    // Name
+    doc.setFont('times','bold'); doc.setFontSize(22);
+    doc.text(name || '', pageW/2, y, {align:'center'});
+    y += 20;
+
+    // Contact line with real hyperlinks
+    doc.setFont('times','normal'); doc.setFontSize(10.5);
+    const segs = [];
+    if(phone) segs.push({text:phone});
+    if(email) segs.push({text:email, url:'mailto:'+email});
+    if(linkedin) segs.push({text:displayUrl(linkedin), url:linkedin});
+    if(github) segs.push({text:displayUrl(github), url:github});
+    const sep = '   |   ';
+    let total = 0;
+    segs.forEach((s,i)=>{ total += doc.getTextWidth(s.text); if(i<segs.length-1) total += doc.getTextWidth(sep); });
+    let cx = pageW/2 - total/2;
+    segs.forEach((s,i)=>{
+      const w = doc.getTextWidth(s.text);
+      if(s.url){
+        doc.textWithLink(s.text, cx, y, {url:s.url});
+      } else {
+        doc.text(s.text, cx, y);
+      }
+      cx += w;
+      if(i<segs.length-1){ doc.text(sep, cx, y); cx += doc.getTextWidth(sep); }
+    });
+    y += 18;
+
+    function sectionTitle(title){
+      ensureSpace(24);
+      doc.setFont('times','bold'); doc.setFontSize(13);
+      doc.text(title.toUpperCase(), margin, y);
+      doc.setLineWidth(0.8);
+      doc.line(margin, y+3, pageW-margin, y+3);
+      y += 16;
+    }
+    function row(left, right, boldLeft){
+      ensureSpace(14);
+      doc.setFont('times', boldLeft?'bold':'italic'); doc.setFontSize(11);
+      doc.text(left||'', margin, y);
+      doc.setFont('times','italic'); doc.setFontSize(10.5);
+      doc.text(right||'', pageW-margin, y, {align:'right'});
+      y += 13;
+    }
+    function bullets(arr){
+      if(!arr || !arr.length) return;
+      doc.setFont('times','normal'); doc.setFontSize(10.3);
+      const wrapW = contentW - 16;
+      arr.forEach(b=>{
+        const lines = doc.splitTextToSize(b, wrapW);
+        ensureSpace(lines.length*12 + 2);
+        doc.text('\u2022', margin+4, y);
+        lines.forEach((ln,i)=>{
+          doc.text(ln, margin+16, y);
+          y += 12;
+        });
+      });
+      y += 3;
+    }
+    function achvList(arr){
+      if(!arr || !arr.length) return;
+      doc.setFont('times','normal'); doc.setFontSize(10.3);
+      const wrapW = contentW - 16;
+      arr.forEach(a=>{
+        const lines = doc.splitTextToSize(a, wrapW);
+        ensureSpace(lines.length*12 + 2);
+        doc.text('\u2022', margin+4, y);
+        lines.forEach(ln=>{ doc.text(ln, margin+16, y); y += 12; });
+      });
+    }
+
+    if(state.education.length){
+      sectionTitle('Education');
+      state.education.forEach(e=>{
+        row(e.school, e.location, true);
+        row(e.degree, e.dates, false);
+        y += 3;
+      });
+    }
+    if(state.experience.length){
+      sectionTitle('Experience');
+      state.experience.forEach(e=>{
+        row(e.title, e.dates, true);
+        row(e.company, e.location, false);
+        bullets(e.bullets);
+      });
+    }
+    if(state.projects.length){
+      sectionTitle('Projects');
+      state.projects.forEach(e=>{
+        const left = e.tech ? `${e.name}  |  ${e.tech}` : e.name;
+        row(left, e.dates, true);
+        bullets(e.bullets);
+      });
+    }
+    if(state.achievements.length){
+      sectionTitle('Certificates / Achievements');
+      achvList(state.achievements);
+      y += 6;
+    }
+    if(state.skills.length){
+      sectionTitle('Technical Skills');
+      doc.setFontSize(10.3);
+      state.skills.forEach(s=>{
+        ensureSpace(14);
+        doc.setFont('times','bold');
+        const label = s.category + ': ';
+        doc.text(label, margin, y);
+        const labelW = doc.getTextWidth(label);
+        doc.setFont('times','normal');
+        const lines = doc.splitTextToSize(s.values, contentW - labelW);
+        doc.text(lines[0]||'', margin+labelW, y);
+        y += 13;
+        for(let i=1;i<lines.length;i++){
+          ensureSpace(13);
+          doc.text(lines[i], margin, y);
+          y += 13;
+        }
+      });
+    }
+
+    const fileName = (name||'resume').trim().replace(/\s+/g,'_') + '.pdf';
+    doc.save(fileName);
+    setStatus('PDF downloaded ✓ (links are clickable in the file)');
+  }catch(err){
+    console.error(err);
+    setStatus('Something went wrong generating the PDF. Check console for details.');
+  }
+}
+
+/* ---------------------------------------------------------
+   IMAGE EXPORT (PNG snapshot of the styled preview)
+--------------------------------------------------------- */
+function downloadImage(){
+  setStatus('Generating image...');
+  const node = document.getElementById('resumePreview');
+  html2canvas(node, {scale:3, backgroundColor:'#ffffff'}).then(canvas=>{
+    const link = document.createElement('a');
+    const name = document.getElementById('f_name').value || 'resume';
+    link.download = name.trim().replace(/\s+/g,'_') + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    setStatus('Image downloaded ✓');
+  }).catch(err=>{
+    console.error(err);
+    setStatus('Something went wrong generating the image.');
+  });
+}
+
+/* ---------------------------------------------------------
+   INIT
+--------------------------------------------------------- */
+renderForm();
+renderPreview();
+document.getElementById('f_name').addEventListener('input', renderPreview);
+document.getElementById('f_phone').addEventListener('input', renderPreview);
+document.getElementById('f_email').addEventListener('input', renderPreview);
+document.getElementById('f_linkedin').addEventListener('input', renderPreview);
+document.getElementById('f_github').addEventListener('input', renderPreview);
+</script>
+</body>
+</html>
